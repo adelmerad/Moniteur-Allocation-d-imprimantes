@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moniteur — Allocation Imprimantes</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f0; color: #1a1a18; padding: 24px 16px; min-height: 100vh; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .top-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .metric { background: #eeeee8; border-radius: 8px; padding: 10px 14px; text-align: center; }
+  .metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .metric-val { font-size: 24px; font-weight: 500; }
+  .metric-val.green { color: #1D9E75; }
+  .metric-val.purple { color: #7F77DD; }
+  .metric-val.amber { color: #BA7517; }
+  .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  @media (max-width: 600px) { .main-grid, .top-bar { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border: 0.5px solid #ccc; border-radius: 12px; padding: 12px; }
+  .panel-title { font-size: 12px; font-weight: 500; color: #555; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .printers { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
+  .printer-slot { width: 36px; height: 36px; border-radius: 8px; border: 0.5px solid #ccc; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: background .3s, border-color .3s; }
+  .printer-slot.free { background: #E1F5EE; border-color: #5DCAA5; color: #085041; }
+  .printer-slot.used { background: #FAECE7; border-color: #F0997B; color: #712B13; }
+  .queue-list { min-height: 36px; display: flex; flex-direction: column; gap: 5px; }
+  .queue-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-radius: 8px; font-size: 12px; }
+  .queue-item.sys { background: #EEEDFE; color: #3C3489; border: 0.5px solid #AFA9EC; }
+  .queue-item.usr { background: #E1F5EE; color: #085041; border: 0.5px solid #5DCAA5; }
+  .queue-item .qname { font-weight: 500; }
+  .queue-item .qval { font-size: 11px; opacity: .8; }
+  .queue-empty { font-size: 11px; color: #aaa; padding: 4px 0; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .ctrl-group { display: flex; align-items: center; gap: 6px; background: #eeeee8; border-radius: 8px; padding: 6px 10px; }
+  .ctrl-group label { font-size: 12px; color: #666; }
+  .ctrl-group select, .ctrl-group input[type=number] { font-size: 12px; width: 64px; padding: 3px 6px; border: 0.5px solid #ccc; border-radius: 4px; background: #fff; color: #1a1a18; }
+  button { cursor: pointer; font-size: 13px; padding: 6px 14px; border: 0.5px solid #bbb; border-radius: 8px; background: transparent; color: #1a1a18; transition: background .15s; }
+  button:hover { background: #eeeee8; }
+  button.danger { border-color: #E24B4A; color: #A32D2D; }
+  .log-wrap { background: #eeeee8; border-radius: 8px; padding: 8px 12px; max-height: 140px; overflow-y: auto; margin-bottom: 14px; }
+  .log-line { font-family: monospace; font-size: 11px; line-height: 1.8; color: #666; }
+  .log-line.step0 { color: #1D9E75; }
+  .log-line.step1 { color: #7F77DD; }
+  .log-line.step2 { color: #BA7517; }
+  .log-line.step3 { color: #185FA5; }
+  .log-line.err { color: #A32D2D; }
+  .log-line.req { color: #3C3489; font-weight: 500; }
+  .code-box { background: #eeeee8; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: #555; line-height: 2; }
+  .step-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 20px; margin-right: 4px; font-weight: 500; }
+  .sb0 { background: #E1F5EE; color: #085041; }
+  .sb1 { background: #EEEDFE; color: #26215C; }
+  .sb2 { background: #FAEEDA; color: #412402; }
+  .sb3 { background: #E6F1FB; color: #042C53; }
+  .kw { color: #7F77DD; font-weight: 500; }
+  .fn { color: #1D9E75; }
+  .sec-title { font-size: 12px; font-weight: 500; margin: 0 0 4px; }
+</style>
+</head>
+<body>
+
+<h1>Moniteur — Allocation d'imprimantes</h1>
+<p class="subtitle">N = 5 imprimantes &middot; Priorit&eacute; syst&egrave;me sur utilisateur</p>
+
+<div class="top-bar">
+  <div class="metric"><div class="metric-label">Dispo (libres)</div><div class="metric-val green" id="v-dispo">5</div></div>
+  <div class="metric"><div class="metric-label">File syst&egrave;me</div><div class="metric-val purple" id="v-fsys">0</div></div>
+  <div class="metric"><div class="metric-label">File utilisateur</div><div class="metric-val amber" id="v-fusr">0</div></div>
+</div>
+
+<div class="main-grid">
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-printer"></i> Imprimantes</div>
+    <div class="printers" id="printers"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-list"></i> Files d'attente</div>
+    <p class="sec-title" style="color:#7F77DD">Syst&egrave;me</p>
+    <div class="queue-list" id="qsys"></div>
+    <p class="sec-title" style="color:#1D9E75;margin-top:10px">Utilisateur</p>
+    <div class="queue-list" id="qusr"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <label>Type</label>
+    <select id="req-type"><option value="sys">Syst&egrave;me</option><option value="usr">Utilisateur</option></select>
+  </div>
+  <div class="ctrl-group">
+    <label>Demander K =</label>
+    <input type="number" id="req-k" value="2" min="1" max="5">
+  </div>
+  <button onclick="doDemander()">Demander</button>
+  <div class="ctrl-group">
+    <label>Lib&eacute;rer m =</label>
+    <input type="number" id="rel-m" value="2" min="1" max="5">
+  </div>
+  <button onclick="doLiberer()">Lib&eacute;rer</button>
+  <button class="danger" onclick="resetAll()">Reset</button>
+</div>
+
+<div class="log-wrap" id="log"><div class="log-line">&mdash; Pr&ecirc;t. N = 5 imprimantes disponibles. &mdash;</div></div>
+
+<div class="code-box">
+<b>Proc&eacute;dure <span class="fn">Demander</span>(K, type)</b><br>
+&nbsp; <span class="kw">si</span> (Dispo &lt; K) <span class="kw">alors</span><br>
+&nbsp;&nbsp;&nbsp; <span class="kw">switch</span>(type):<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="kw">case</span> syst&egrave;me: enfiler(FilSys, K-Dispo); Dispo=0; <span class="fn">syst.wait</span>;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="kw">case</span> utilisateur: enfiler(FilUsr, K); <span class="fn">user.wait</span>;<br>
+&nbsp; <span class="kw">sinon</span> Dispo = Dispo - K;<br>
+&nbsp; <span class="kw">fsi</span>;<br><br>
+<b>Proc&eacute;dure <span class="fn">Lib&eacute;rer</span>(m)</b><br>
+&nbsp; <span class="step-badge sb0">&Eacute;tape 0</span>Dispo = Dispo + m;<br>
+&nbsp; <span class="kw">tantque</span>(syst.empty==<span class="kw">faux</span> <span class="kw">et</span> Dispo &gt;= T&ecirc;te(FilSys)) <span class="kw">faire</span><br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb1">&Eacute;tape 1</span>Dispo -= T&ecirc;te(FilSys); D&eacute;filer(FilSys); <span class="fn">syst.signal</span>;<br>
+&nbsp; <span class="kw">fait</span><br>
+&nbsp; <span class="kw">si</span>(syst.empty==<span class="kw">faux</span>) <span class="kw">alors</span><br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb2">&Eacute;tape 2</span>T&ecirc;te(FilSys) = T&ecirc;te(FilSys) - Dispo; Dispo = 0;<br>
+&nbsp; <span class="kw">fsi</span>;<br>
+&nbsp; <span class="kw">tantque</span>(User.empty==<span class="kw">faux</span> <span class="kw">et</span> Dispo &gt;= T&ecirc;te(FilUsr)) <span class="kw">faire</span><br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb3">&Eacute;tape 3</span>Dispo -= T&ecirc;te(FilUsr); D&eacute;filer(FilUsr); <span class="fn">user.signal</span>;<br>
+&nbsp; <span class="kw">fait</span>
+</div>
+
+<script>
+const N = 5;
+let dispo = 5, fileSys = [], fileUsr = [];
+let procCounter = { sys: 0, usr: 0 };
+
+function render() {
+  document.getElementById('v-dispo').textContent = dispo;
+  document.getElementById('v-fsys').textContent = fileSys.length;
+  document.getElementById('v-fusr').textContent = fileUsr.length;
+  const pc = document.getElementById('printers');
+  pc.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const s = document.createElement('div');
+    s.className = 'printer-slot ' + (i < dispo ? 'free' : 'used');
+    s.title = i < dispo ? 'Libre' : 'Occupee';
+    s.innerHTML = '<i class="ti ti-printer"></i>';
+    pc.appendChild(s);
+  }
+  const qs = document.getElementById('qsys');
+  qs.innerHTML = fileSys.length === 0
+    ? '<div class="queue-empty">&mdash; vide &mdash;</div>'
+    : fileSys.map(e => '<div class="queue-item sys"><span class="qname">' + e.name + '</span><span class="qval">attend ' + e.k + ' imprimante(s)</span></div>').join('');
+  const qu = document.getElementById('qusr');
+  qu.innerHTML = fileUsr.length === 0
+    ? '<div class="queue-empty">&mdash; vide &mdash;</div>'
+    : fileUsr.map(e => '<div class="queue-item usr"><span class="qname">' + e.name + '</span><span class="qval">attend ' + e.k + ' imprimante(s)</span></div>').join('');
+}
+
+function log(msg, cls) {
+  const box = document.getElementById('log');
+  const d = document.createElement('div');
+  d.className = 'log-line ' + (cls || '');
+  d.textContent = msg;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function doDemander() {
+  const type = document.getElementById('req-type').value;
+  const k = parseInt(document.getElementById('req-k').value);
+  if (!k || k < 1 || k > N) { log('Valeur K invalide (1 a ' + N + ')', 'err'); return; }
+  procCounter[type]++;
+  const name = (type === 'sys' ? 'Sys-' : 'Usr-') + procCounter[type];
+  log('-> [' + name + '] demande ' + k + ' imprimante(s)', 'req');
+  if (dispo < k) {
+    if (type === 'sys') {
+      const need = k - dispo;
+      fileSys.push({ name, k: need });
+      log('  Dispo(' + dispo + ') < K(' + k + ') -> FileSys <- besoin residuel=' + need + ', Dispo -> 0', 'step1');
+      dispo = 0;
+    } else {
+      fileUsr.push({ name, k });
+      log('  Dispo(' + dispo + ') < K(' + k + ') -> FileUsr <- ' + k + ' -- bloque', 'step1');
+    }
+  } else {
+    dispo -= k;
+    log('  Dispo suffisant -> Dispo = ' + dispo, 'step0');
+  }
+  render();
+}
+
+function doLiberer() {
+  const m = parseInt(document.getElementById('rel-m').value);
+  if (!m || m < 1 || m > N) { log('Valeur m invalide (1 a ' + N + ')', 'err'); return; }
+  log('<- Liberation de ' + m + ' imprimante(s)', 'req');
+  log('  [Etape 0] Dispo = ' + dispo + ' + ' + m + ' = ' + (dispo + m), 'step0');
+  dispo += m;
+  render();
+  let it = 0;
+  while (fileSys.length > 0 && dispo >= fileSys[0].k) {
+    const p = fileSys[0];
+    log('  [Etape 1] Debloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step1');
+    dispo -= p.k; fileSys.shift(); render();
+    if (++it > 20) break;
+  }
+  if (fileSys.length > 0 && dispo > 0) {
+    const head = fileSys[0];
+    log('  [Etape 2] Pas assez pour ' + head.name + ' (besoin ' + head.k + ') -> reserver ' + dispo + ', Tete <- ' + (head.k - dispo) + ', Dispo -> 0', 'step2');
+    fileSys[0] = { name: head.name, k: head.k - dispo };
+    dispo = 0; render();
+  } else if (fileSys.length === 0) {
+    let it2 = 0;
+    while (fileUsr.length > 0 && dispo >= fileUsr[0].k) {
+      const p = fileUsr[0];
+      log('  [Etape 3] Debloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step3');
+      dispo -= p.k; fileUsr.shift(); render();
+      if (++it2 > 20) break;
+    }
+    if (dispo > 0 && fileUsr.length === 0)
+      log('  [Etape 3] Files vides -- Dispo = ' + dispo + ' reste disponible.', 'step3');
+    else if (dispo > 0)
+      log('  [Etape 3] Dispo(' + dispo + ') insuffisant pour ' + fileUsr[0].name + ' -- arret.', 'step3');
+  }
+  render();
+}
+
+function resetAll() {
+  dispo = N; fileSys = []; fileUsr = [];
+  procCounter = { sys: 0, usr: 0 };
+  document.getElementById('log').innerHTML = '<div class="log-line">&mdash; Reinitialise. N = 5 imprimantes. &mdash;</div>';
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
