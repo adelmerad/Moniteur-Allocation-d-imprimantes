@@ -4,64 +4,116 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Moniteur — Allocation Imprimantes</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #f5f5f0; color: #1a1a18; padding: 24px 16px; min-height: 100vh; }
+
+  :root {
+    --bg:#f5f5f0; --fg:#1a1a18; --fg-soft:#555; --muted:#888; --muted2:#666;
+    --card-bg:#fff; --card-border:#ccc; --soft-bg:#eeeee8; --btn-border:#bbb;
+    --green:#1D9E75; --green-bg:#E1F5EE; --green-border:#5DCAA5; --green-fg:#085041;
+    --purple:#7F77DD; --purple-bg:#EEEDFE; --purple-border:#AFA9EC; --purple-fg:#3C3489; --purple-fg2:#26215C;
+    --amber:#BA7517; --amber-bg2:#FAEEDA; --amber-fg2:#412402;
+    --rose-bg:#FAECE7; --rose-border:#F0997B; --rose-fg:#712B13;
+    --blue:#185FA5; --blue-bg:#E6F1FB; --blue-fg:#042C53;
+    --danger:#E24B4A; --danger-fg:#A32D2D;
+  }
+  [data-theme="dark"] {
+    --bg:#111114; --fg:#ececec; --fg-soft:#c7c7cf; --muted:#8b8b93; --muted2:#9a9aa3;
+    --card-bg:#1b1b20; --card-border:#34343c; --soft-bg:#1f1f25; --btn-border:#45454e;
+    --green:#3ddba0; --green-bg:#0f2e26; --green-border:#1f7a5c; --green-fg:#8fe9c9;
+    --purple:#a39bff; --purple-bg:#242150; --purple-border:#4b44a0; --purple-fg:#c9c4ff; --purple-fg2:#d8d4ff;
+    --amber:#e0a542; --amber-bg2:#3a2d12; --amber-fg2:#f0c374;
+    --rose-bg:#3a2420; --rose-border:#a85a3d; --rose-fg:#f3b090;
+    --blue:#6cb0e8; --blue-bg:#132a3e; --blue-fg:#bcdcff;
+    --danger:#ff6b6a; --danger-fg:#ff8a89;
+  }
+
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); padding: 24px 16px; min-height: 100vh; max-width: 880px; margin: 0 auto; transition: background .2s, color .2s; }
   h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .subtitle { font-size: 13px; color: var(--muted); }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 12px; }
+  .icon-btn { font-size: 15px; line-height: 1; padding: 7px 10px; border-radius: 8px; border: 0.5px solid var(--btn-border); background: transparent; color: var(--fg); cursor: pointer; }
+  .icon-btn:hover { background: var(--soft-bg); }
+
   .top-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-  .metric { background: #eeeee8; border-radius: 8px; padding: 10px 14px; text-align: center; }
-  .metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .metric { background: var(--soft-bg); border-radius: 8px; padding: 10px 14px; text-align: center; }
+  .metric-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
   .metric-val { font-size: 24px; font-weight: 500; }
-  .metric-val.green { color: #1D9E75; }
-  .metric-val.purple { color: #7F77DD; }
-  .metric-val.amber { color: #BA7517; }
+  .metric-val.green { color: var(--green); }
+  .metric-val.purple { color: var(--purple); }
+  .metric-val.amber { color: var(--amber); }
+
+  .starve-banner { background: var(--rose-bg); border: 0.5px solid var(--rose-border); color: var(--rose-fg); font-size: 12px; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px; }
+
   .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   @media (max-width: 600px) { .main-grid, .top-bar { grid-template-columns: 1fr; } }
-  .panel { background: #fff; border: 0.5px solid #ccc; border-radius: 12px; padding: 12px; }
-  .panel-title { font-size: 12px; font-weight: 500; color: #555; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .panel { background: var(--card-bg); border: 0.5px solid var(--card-border); border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+  .panel-title { font-size: 12px; font-weight: 500; color: var(--fg-soft); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
   .printers { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
-  .printer-slot { width: 36px; height: 36px; border-radius: 8px; border: 0.5px solid #ccc; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: background .3s, border-color .3s; }
-  .printer-slot.free { background: #E1F5EE; border-color: #5DCAA5; color: #085041; }
-  .printer-slot.used { background: #FAECE7; border-color: #F0997B; color: #712B13; }
+  .printer-slot { width: 36px; height: 36px; border-radius: 8px; border: 0.5px solid var(--card-border); background: var(--soft-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; transition: background .3s, border-color .3s; }
+  .printer-slot.free { background: var(--green-bg); border-color: var(--green-border); color: var(--green-fg); }
+  .printer-slot.used { background: var(--rose-bg); border-color: var(--rose-border); color: var(--rose-fg); }
+
+  .gauge-bar { height: 8px; border-radius: 4px; background: var(--soft-bg); overflow: hidden; margin-top: 10px; }
+  .gauge-fill { height: 100%; background: var(--rose-border); transition: width .3s; }
+  .gauge-caption { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
   .queue-list { min-height: 36px; display: flex; flex-direction: column; gap: 5px; }
   .queue-item { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-radius: 8px; font-size: 12px; }
-  .queue-item.sys { background: #EEEDFE; color: #3C3489; border: 0.5px solid #AFA9EC; }
-  .queue-item.usr { background: #E1F5EE; color: #085041; border: 0.5px solid #5DCAA5; }
+  .queue-item.sys { background: var(--purple-bg); color: var(--purple-fg); border: 0.5px solid var(--purple-border); }
+  .queue-item.usr { background: var(--green-bg); color: var(--green-fg); border: 0.5px solid var(--green-border); }
   .queue-item .qname { font-weight: 500; }
   .queue-item .qval { font-size: 11px; opacity: .8; }
-  .queue-empty { font-size: 11px; color: #aaa; padding: 4px 0; }
-  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
-  .ctrl-group { display: flex; align-items: center; gap: 6px; background: #eeeee8; border-radius: 8px; padding: 6px 10px; }
-  .ctrl-group label { font-size: 12px; color: #666; }
-  .ctrl-group select, .ctrl-group input[type=number] { font-size: 12px; width: 64px; padding: 3px 6px; border: 0.5px solid #ccc; border-radius: 4px; background: #fff; color: #1a1a18; }
-  button { cursor: pointer; font-size: 13px; padding: 6px 14px; border: 0.5px solid #bbb; border-radius: 8px; background: transparent; color: #1a1a18; transition: background .15s; }
-  button:hover { background: #eeeee8; }
-  button.danger { border-color: #E24B4A; color: #A32D2D; }
-  .log-wrap { background: #eeeee8; border-radius: 8px; padding: 8px 12px; max-height: 140px; overflow-y: auto; margin-bottom: 14px; }
-  .log-line { font-family: monospace; font-size: 11px; line-height: 1.8; color: #666; }
-  .log-line.step0 { color: #1D9E75; }
-  .log-line.step1 { color: #7F77DD; }
-  .log-line.step2 { color: #BA7517; }
-  .log-line.step3 { color: #185FA5; }
-  .log-line.err { color: #A32D2D; }
-  .log-line.req { color: #3C3489; font-weight: 500; }
-  .code-box { background: #eeeee8; border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: #555; line-height: 2; }
-  .step-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 20px; margin-right: 4px; font-weight: 500; }
-  .sb0 { background: #E1F5EE; color: #085041; }
-  .sb1 { background: #EEEDFE; color: #26215C; }
-  .sb2 { background: #FAEEDA; color: #412402; }
-  .sb3 { background: #E6F1FB; color: #042C53; }
-  .kw { color: #7F77DD; font-weight: 500; }
-  .fn { color: #1D9E75; }
+  .queue-empty { font-size: 11px; color: var(--muted); padding: 4px 0; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat { text-align: center; }
+  .stat-val { font-size: 18px; font-weight: 500; }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
+  .ctrl-group { display: flex; align-items: center; gap: 6px; background: var(--soft-bg); border-radius: 8px; padding: 6px 10px; }
+  .ctrl-group label { font-size: 12px; color: var(--muted2); }
+  .ctrl-group select, .ctrl-group input[type=number] { font-size: 12px; width: 64px; padding: 3px 6px; border: 0.5px solid var(--card-border); border-radius: 4px; background: var(--card-bg); color: var(--fg); }
+  button { cursor: pointer; font-size: 13px; padding: 6px 14px; border: 0.5px solid var(--btn-border); border-radius: 8px; background: transparent; color: var(--fg); transition: background .15s; }
+  button:hover { background: var(--soft-bg); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.danger { border-color: var(--danger); color: var(--danger-fg); }
+  button.active { background: var(--purple-bg); border-color: var(--purple-border); color: var(--purple-fg); }
+
+  .log-wrap { background: var(--soft-bg); border-radius: 8px; padding: 8px 12px; max-height: 160px; overflow-y: auto; margin-bottom: 14px; }
+  .log-line { font-family: monospace; font-size: 11px; line-height: 1.8; color: var(--muted2); }
+  .log-line.step0 { color: var(--green); }
+  .log-line.step1 { color: var(--purple); }
+  .log-line.step2 { color: var(--amber); }
+  .log-line.step3 { color: var(--blue); }
+  .log-line.err { color: var(--danger-fg); }
+  .log-line.req { color: var(--purple-fg); font-weight: 500; }
+
+  .code-box { background: var(--soft-bg); border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: var(--fg-soft); line-height: 2; }
+  .step-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 20px; margin-right: 4px; font-weight: 500; transition: transform .15s, box-shadow .15s; }
+  .step-badge.flash { transform: scale(1.25); box-shadow: 0 0 0 3px rgba(0,0,0,.12); }
+  [data-theme="dark"] .step-badge.flash { box-shadow: 0 0 0 3px rgba(255,255,255,.15); }
+  .sb0 { background: var(--green-bg); color: var(--green-fg); }
+  .sb1 { background: var(--purple-bg); color: var(--purple-fg2); }
+  .sb2 { background: var(--amber-bg2); color: var(--amber-fg2); }
+  .sb3 { background: var(--blue-bg); color: var(--blue-fg); }
+  .kw { color: var(--purple); font-weight: 500; }
+  .fn { color: var(--green); }
   .sec-title { font-size: 12px; font-weight: 500; margin: 0 0 4px; }
+  .note { font-size: 11px; color: var(--muted); margin-top: 8px; }
 </style>
 </head>
 <body>
 
-<h1>Moniteur — Allocation d'imprimantes</h1>
-<p class="subtitle">N = 5 imprimantes &middot; Priorit&eacute; syst&egrave;me sur utilisateur</p>
+<div class="header-row">
+  <div>
+    <h1>Moniteur — Allocation d'imprimantes</h1>
+    <p class="subtitle">N = <span id="v-n">5</span> imprimantes &middot; Priorit&eacute; syst&egrave;me sur utilisateur</p>
+  </div>
+  <button class="icon-btn" id="btn-theme" onclick="toggleTheme()" aria-label="Changer de th&egrave;me" title="Changer de th&egrave;me">🌙</button>
+</div>
 
 <div class="top-bar">
   <div class="metric"><div class="metric-label">Dispo (libres)</div><div class="metric-val green" id="v-dispo">5</div></div>
@@ -69,17 +121,31 @@
   <div class="metric"><div class="metric-label">File utilisateur</div><div class="metric-val amber" id="v-fusr">0</div></div>
 </div>
 
+<div class="starve-banner" id="starve-banner" role="alert" style="display:none"></div>
+
 <div class="main-grid">
   <div class="panel">
-    <div class="panel-title"><i class="ti ti-printer"></i> Imprimantes</div>
+    <div class="panel-title">🖨️ Imprimantes</div>
     <div class="printers" id="printers"></div>
+    <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill" style="width:0%"></div></div>
+    <div class="gauge-caption" id="gauge-caption">0 / 5 occup&eacute;es</div>
   </div>
   <div class="panel">
-    <div class="panel-title"><i class="ti ti-list"></i> Files d'attente</div>
-    <p class="sec-title" style="color:#7F77DD">Syst&egrave;me</p>
+    <div class="panel-title">📋 Files d'attente</div>
+    <p class="sec-title" style="color:var(--purple)">Syst&egrave;me</p>
     <div class="queue-list" id="qsys"></div>
-    <p class="sec-title" style="color:#1D9E75;margin-top:10px">Utilisateur</p>
+    <p class="sec-title" style="color:var(--green);margin-top:10px">Utilisateur</p>
     <div class="queue-list" id="qusr"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">📊 Statistiques cumul&eacute;es</div>
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-label">Demandes totales</div></div>
+    <div class="stat"><div class="stat-val" id="s-immediate">0</div><div class="stat-label">Allou&eacute;es imm&eacute;diatement</div></div>
+    <div class="stat"><div class="stat-val" id="s-unblocked">0</div><div class="stat-label">D&eacute;bloqu&eacute;es apr&egrave;s attente</div></div>
+    <div class="stat"><div class="stat-val" id="s-peak">0</div><div class="stat-label">Pic d'occupation</div></div>
   </div>
 </div>
 
@@ -90,18 +156,38 @@
   </div>
   <div class="ctrl-group">
     <label>Demander K =</label>
-    <input type="number" id="req-k" value="2" min="1" max="5">
+    <input type="number" id="req-k" value="2" min="1" max="5" onkeydown="if(event.key==='Enter')doDemander();">
   </div>
-  <button onclick="doDemander()">Demander</button>
+  <button id="btn-demander" onclick="doDemander()">Demander</button>
   <div class="ctrl-group">
     <label>Lib&eacute;rer m =</label>
-    <input type="number" id="rel-m" value="2" min="1" max="5">
+    <input type="number" id="rel-m" value="2" min="1" max="5" onkeydown="if(event.key==='Enter')doLiberer();">
   </div>
-  <button onclick="doLiberer()">Lib&eacute;rer</button>
-  <button class="danger" onclick="resetAll()">Reset</button>
+  <button id="btn-liberer" onclick="doLiberer()">Lib&eacute;rer</button>
+  <button class="danger" id="btn-reset" onclick="resetAll()">Reset</button>
 </div>
 
-<div class="log-wrap" id="log"><div class="log-line">&mdash; Pr&ecirc;t. N = 5 imprimantes disponibles. &mdash;</div></div>
+<div class="controls">
+  <div class="ctrl-group">
+    <label>N imprimantes</label>
+    <input type="number" id="cfg-n" value="5" min="1" max="20">
+  </div>
+  <button onclick="applyN()">Appliquer N</button>
+  <div class="ctrl-group">
+    <label>Vitesse</label>
+    <select id="speed">
+      <option value="0">Instantan&eacute;e</option>
+      <option value="250">Rapide</option>
+      <option value="550" selected>Normale</option>
+      <option value="1100">Lente</option>
+    </select>
+  </div>
+  <button id="btn-scenario" onclick="runScenario()">▶ Sc&eacute;nario de d&eacute;mo</button>
+  <button id="btn-auto" onclick="toggleAuto()">⏵ Simulation auto</button>
+  <button onclick="exportLog()">⤓ Export journal</button>
+</div>
+
+<div class="log-wrap" id="log" role="log" aria-live="polite"></div>
 
 <div class="code-box">
 <b>Proc&eacute;dure <span class="fn">Demander</span>(K, type)</b><br>
@@ -112,44 +198,82 @@
 &nbsp; <span class="kw">sinon</span> Dispo = Dispo - K;<br>
 &nbsp; <span class="kw">fsi</span>;<br><br>
 <b>Proc&eacute;dure <span class="fn">Lib&eacute;rer</span>(m)</b><br>
-&nbsp; <span class="step-badge sb0">&Eacute;tape 0</span>Dispo = Dispo + m;<br>
+&nbsp; <span class="step-badge sb0" id="badge0">&Eacute;tape 0</span>Dispo = Dispo + m;<br>
 &nbsp; <span class="kw">tantque</span>(syst.empty==<span class="kw">faux</span> <span class="kw">et</span> Dispo &gt;= T&ecirc;te(FilSys)) <span class="kw">faire</span><br>
-&nbsp;&nbsp;&nbsp; <span class="step-badge sb1">&Eacute;tape 1</span>Dispo -= T&ecirc;te(FilSys); D&eacute;filer(FilSys); <span class="fn">syst.signal</span>;<br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb1" id="badge1">&Eacute;tape 1</span>Dispo -= T&ecirc;te(FilSys); D&eacute;filer(FilSys); <span class="fn">syst.signal</span>;<br>
 &nbsp; <span class="kw">fait</span><br>
 &nbsp; <span class="kw">si</span>(syst.empty==<span class="kw">faux</span>) <span class="kw">alors</span><br>
-&nbsp;&nbsp;&nbsp; <span class="step-badge sb2">&Eacute;tape 2</span>T&ecirc;te(FilSys) = T&ecirc;te(FilSys) - Dispo; Dispo = 0;<br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb2" id="badge2">&Eacute;tape 2</span>T&ecirc;te(FilSys) = T&ecirc;te(FilSys) - Dispo; Dispo = 0;<br>
 &nbsp; <span class="kw">fsi</span>;<br>
 &nbsp; <span class="kw">tantque</span>(User.empty==<span class="kw">faux</span> <span class="kw">et</span> Dispo &gt;= T&ecirc;te(FilUsr)) <span class="kw">faire</span><br>
-&nbsp;&nbsp;&nbsp; <span class="step-badge sb3">&Eacute;tape 3</span>Dispo -= T&ecirc;te(FilUsr); D&eacute;filer(FilUsr); <span class="fn">user.signal</span>;<br>
+&nbsp;&nbsp;&nbsp; <span class="step-badge sb3" id="badge3">&Eacute;tape 3</span>Dispo -= T&ecirc;te(FilUsr); D&eacute;filer(FilUsr); <span class="fn">user.signal</span>;<br>
 &nbsp; <span class="kw">fait</span>
+<div class="note">Garde de s&eacute;curit&eacute; : Lib&eacute;rer(m) est refus&eacute; si m d&eacute;passe le nombre d'imprimantes r&eacute;ellement occup&eacute;es, ce qui garantit l'invariant 0 &le; Dispo &le; N.</div>
 </div>
 
 <script>
-const N = 5;
-let dispo = 5, fileSys = [], fileUsr = [];
+let N = 5;
+let dispo = N, fileSys = [], fileUsr = [];
 let procCounter = { sys: 0, usr: 0 };
+let stats = { total: 0, immediate: 0, unblocked: 0, peak: 0 };
+let usrStarveStreak = 0;
+let busy = false;
+let autoOn = false, autoTimer = null;
+let runToken = 0;
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const stepDelay = () => parseInt(document.getElementById('speed').value);
+
+function setControlsDisabled(disabled) {
+  ['btn-demander', 'btn-liberer', 'btn-reset', 'btn-scenario'].forEach(id => {
+    document.getElementById(id).disabled = disabled;
+  });
+}
 
 function render() {
+  document.getElementById('v-n').textContent = N;
   document.getElementById('v-dispo').textContent = dispo;
   document.getElementById('v-fsys').textContent = fileSys.length;
   document.getElementById('v-fusr').textContent = fileUsr.length;
+
   const pc = document.getElementById('printers');
   pc.innerHTML = '';
   for (let i = 0; i < N; i++) {
     const s = document.createElement('div');
     s.className = 'printer-slot ' + (i < dispo ? 'free' : 'used');
-    s.title = i < dispo ? 'Libre' : 'Occupee';
-    s.innerHTML = '<i class="ti ti-printer"></i>';
+    const label = i < dispo ? 'Libre' : 'Occupée';
+    s.title = label;
+    s.setAttribute('aria-label', 'Imprimante ' + (i + 1) + ' : ' + label);
+    s.textContent = '🖨';
     pc.appendChild(s);
   }
+
+  const occupied = N - dispo;
+  stats.peak = Math.max(stats.peak, occupied);
+  document.getElementById('gauge-fill').style.width = (N ? (occupied / N * 100) : 0) + '%';
+  document.getElementById('gauge-caption').textContent = occupied + ' / ' + N + ' occupées';
+
   const qs = document.getElementById('qsys');
   qs.innerHTML = fileSys.length === 0
     ? '<div class="queue-empty">&mdash; vide &mdash;</div>'
-    : fileSys.map(e => '<div class="queue-item sys"><span class="qname">' + e.name + '</span><span class="qval">attend ' + e.k + ' imprimante(s)</span></div>').join('');
+    : fileSys.map(e => `<div class="queue-item sys"><span class="qname">${e.name}</span><span class="qval">attend ${e.k} imprimante(s)</span></div>`).join('');
   const qu = document.getElementById('qusr');
   qu.innerHTML = fileUsr.length === 0
     ? '<div class="queue-empty">&mdash; vide &mdash;</div>'
-    : fileUsr.map(e => '<div class="queue-item usr"><span class="qname">' + e.name + '</span><span class="qval">attend ' + e.k + ' imprimante(s)</span></div>').join('');
+    : fileUsr.map(e => `<div class="queue-item usr"><span class="qname">${e.name}</span><span class="qval">attend ${e.k} imprimante(s)</span></div>`).join('');
+
+  const banner = document.getElementById('starve-banner');
+  if (usrStarveStreak >= 2 && fileUsr.length > 0) {
+    banner.style.display = 'block';
+    banner.textContent = `⚠️ File utilisateur non servie depuis ${usrStarveStreak} libération(s) consécutive(s) — risque de famine (starvation).`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  document.getElementById('s-total').textContent = stats.total;
+  document.getElementById('s-immediate').textContent = stats.immediate;
+  document.getElementById('s-unblocked').textContent = stats.unblocked;
+  document.getElementById('s-peak').textContent = stats.peak;
 }
 
 function log(msg, cls) {
@@ -159,12 +283,27 @@ function log(msg, cls) {
   d.textContent = msg;
   box.appendChild(d);
   box.scrollTop = box.scrollHeight;
+  if (cls && cls.indexOf('step') === 0) flashBadge(cls.slice(-1));
 }
 
+function flashBadge(n) {
+  const el = document.getElementById('badge' + n);
+  if (!el) return;
+  el.classList.add('flash');
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => el.classList.remove('flash'), 700);
+}
+
+function setType(t) { document.getElementById('req-type').value = t; }
+function setK(k) { document.getElementById('req-k').value = k; }
+function setM(m) { document.getElementById('rel-m').value = m; }
+
 function doDemander() {
+  if (busy) { log('Opération en cours, patientez…', 'err'); return; }
   const type = document.getElementById('req-type').value;
   const k = parseInt(document.getElementById('req-k').value);
   if (!k || k < 1 || k > N) { log('Valeur K invalide (1 a ' + N + ')', 'err'); return; }
+  stats.total++;
   procCounter[type]++;
   const name = (type === 'sys' ? 'Sys-' : 'Usr-') + procCounter[type];
   log('-> [' + name + '] demande ' + k + ' imprimante(s)', 'req');
@@ -180,54 +319,189 @@ function doDemander() {
     }
   } else {
     dispo -= k;
+    stats.immediate++;
     log('  Dispo suffisant -> Dispo = ' + dispo, 'step0');
   }
   render();
 }
 
-function doLiberer() {
+async function doLiberer() {
+  if (busy) { log('Opération en cours, patientez…', 'err'); return; }
   const m = parseInt(document.getElementById('rel-m').value);
-  if (!m || m < 1 || m > N) { log('Valeur m invalide (1 a ' + N + ')', 'err'); return; }
-  log('<- Liberation de ' + m + ' imprimante(s)', 'req');
-  log('  [Etape 0] Dispo = ' + dispo + ' + ' + m + ' = ' + (dispo + m), 'step0');
+  if (!m || m < 1) { log('Valeur m invalide', 'err'); return; }
+  const occupied = N - dispo;
+  if (m > occupied) {
+    log(`Impossible de libérer ${m} imprimante(s) : seulement ${occupied} sont actuellement occupées.`, 'err');
+    return;
+  }
+
+  const myToken = runToken;
+  busy = true;
+  setControlsDisabled(true);
+  const delay = stepDelay();
+
+  log('<- Libération de ' + m + ' imprimante(s)', 'req');
+  log('  [Étape 0] Dispo = ' + dispo + ' + ' + m + ' = ' + (dispo + m), 'step0');
   dispo += m;
   render();
+  if (delay) await sleep(delay);
+  if (runToken !== myToken) return;
+
+  let userServed = false;
   let it = 0;
   while (fileSys.length > 0 && dispo >= fileSys[0].k) {
     const p = fileSys[0];
-    log('  [Etape 1] Debloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step1');
-    dispo -= p.k; fileSys.shift(); render();
-    if (++it > 20) break;
+    log('  [Étape 1] Débloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step1');
+    dispo -= p.k;
+    fileSys.shift();
+    stats.unblocked++;
+    render();
+    if (delay) await sleep(delay);
+    if (runToken !== myToken) return;
+    if (++it > 50) break;
   }
+
   if (fileSys.length > 0 && dispo > 0) {
     const head = fileSys[0];
-    log('  [Etape 2] Pas assez pour ' + head.name + ' (besoin ' + head.k + ') -> reserver ' + dispo + ', Tete <- ' + (head.k - dispo) + ', Dispo -> 0', 'step2');
+    log('  [Étape 2] Pas assez pour ' + head.name + ' (besoin ' + head.k + ') -> réserver ' + dispo + ', Tête <- ' + (head.k - dispo) + ', Dispo -> 0', 'step2');
     fileSys[0] = { name: head.name, k: head.k - dispo };
-    dispo = 0; render();
+    dispo = 0;
+    render();
+    if (delay) await sleep(delay);
+    if (runToken !== myToken) return;
   } else if (fileSys.length === 0) {
     let it2 = 0;
     while (fileUsr.length > 0 && dispo >= fileUsr[0].k) {
       const p = fileUsr[0];
-      log('  [Etape 3] Debloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step3');
-      dispo -= p.k; fileUsr.shift(); render();
-      if (++it2 > 20) break;
+      log('  [Étape 3] Débloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step3');
+      dispo -= p.k;
+      fileUsr.shift();
+      stats.unblocked++;
+      userServed = true;
+      render();
+      if (delay) await sleep(delay);
+      if (runToken !== myToken) return;
+      if (++it2 > 50) break;
     }
-    if (dispo > 0 && fileUsr.length === 0)
-      log('  [Etape 3] Files vides -- Dispo = ' + dispo + ' reste disponible.', 'step3');
-    else if (dispo > 0)
-      log('  [Etape 3] Dispo(' + dispo + ') insuffisant pour ' + fileUsr[0].name + ' -- arret.', 'step3');
+    if (dispo > 0 && fileUsr.length === 0) {
+      log('  [Étape 3] Files vides -- Dispo = ' + dispo + ' reste disponible.', 'step3');
+    } else if (dispo > 0) {
+      log('  [Étape 3] Dispo(' + dispo + ') insuffisant pour ' + fileUsr[0].name + ' -- arrêt.', 'step3');
+    }
   }
+
+  usrStarveStreak = (fileUsr.length > 0 && !userServed) ? usrStarveStreak + 1 : 0;
+
+  busy = false;
+  setControlsDisabled(false);
   render();
+}
+
+function applyN() {
+  const val = parseInt(document.getElementById('cfg-n').value);
+  if (!val || val < 1 || val > 20) { log('Valeur de N invalide (1 a 20)', 'err'); return; }
+  N = val;
+  document.getElementById('req-k').max = N;
+  document.getElementById('rel-m').max = N;
+  resetAll();
+  log(`Configuration mise à jour : N = ${N} imprimantes.`, 'req');
+}
+
+async function runScenario() {
+  if (busy || autoOn) { log('Terminez l’opération ou la simulation auto avant de lancer le scénario.', 'err'); return; }
+  document.getElementById('btn-scenario').disabled = true;
+  resetAll();
+  log('▶ Scénario de démonstration lancé (voir README)', 'req');
+  await sleep(400);
+  setType('sys'); setK(Math.min(3, N)); doDemander(); await sleep(700);
+  setType('sys'); setK(Math.min(3, N)); doDemander(); await sleep(700);
+  setType('usr'); setK(Math.min(2, N)); doDemander(); await sleep(700);
+  setM(Math.min(2, N)); await doLiberer();
+  log('■ Scénario terminé.', 'req');
+  document.getElementById('btn-scenario').disabled = false;
+}
+
+async function autoTick() {
+  if (busy) return;
+  const occupied = N - dispo;
+  const wantRelease = occupied > 0 && Math.random() < 0.4;
+  if (wantRelease) {
+    setM(1 + Math.floor(Math.random() * occupied));
+    await doLiberer();
+  } else {
+    setType(Math.random() < 0.3 ? 'sys' : 'usr');
+    setK(1 + Math.floor(Math.random() * N));
+    doDemander();
+  }
+}
+
+function toggleAuto() {
+  autoOn = !autoOn;
+  const btn = document.getElementById('btn-auto');
+  if (autoOn) {
+    btn.textContent = '⏸ Pause simulation';
+    btn.classList.add('active');
+    autoTimer = setInterval(autoTick, 1600);
+    log('▶ Simulation automatique démarrée', 'req');
+  } else {
+    stopAuto();
+    log('⏸ Simulation automatique arrêtée', 'req');
+  }
+}
+
+function stopAuto() {
+  autoOn = false;
+  clearInterval(autoTimer);
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = '⏵ Simulation auto';
+  btn.classList.remove('active');
+}
+
+function exportLog() {
+  const lines = Array.from(document.querySelectorAll('#log .log-line')).map(d => d.textContent);
+  if (lines.length === 0) { log('Journal vide, rien à exporter.', 'err'); return; }
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'journal-moniteur-imprimantes.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  setTheme(isDark ? 'light' : 'dark');
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('btn-theme').textContent = theme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('moniteur-theme', theme);
 }
 
 function resetAll() {
+  runToken++;
+  busy = false;
+  setControlsDisabled(false);
+  if (autoOn) stopAuto();
   dispo = N; fileSys = []; fileUsr = [];
   procCounter = { sys: 0, usr: 0 };
-  document.getElementById('log').innerHTML = '<div class="log-line">&mdash; Reinitialise. N = 5 imprimantes. &mdash;</div>';
+  stats = { total: 0, immediate: 0, unblocked: 0, peak: 0 };
+  usrStarveStreak = 0;
+  document.getElementById('log').innerHTML = '';
+  log(`— Prêt. N = ${N} imprimantes disponibles. —`);
   render();
 }
 
-render();
+(function init() {
+  const savedTheme = localStorage.getItem('moniteur-theme')
+    || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  setTheme(savedTheme);
+  resetAll();
+})();
 </script>
 </body>
 </html>
