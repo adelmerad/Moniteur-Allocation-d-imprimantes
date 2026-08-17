@@ -103,6 +103,7 @@
   .fn { color: var(--green); }
   .sec-title { font-size: 12px; font-weight: 500; margin: 0 0 4px; }
   .note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  #flowCanvas { width: 100%; height: 220px; display: block; border-radius: 8px; background: var(--soft-bg); }
 </style>
 </head>
 <body>
@@ -147,6 +148,12 @@
     <div class="stat"><div class="stat-val" id="s-unblocked">0</div><div class="stat-label">D&eacute;bloqu&eacute;es apr&egrave;s attente</div></div>
     <div class="stat"><div class="stat-val" id="s-peak">0</div><div class="stat-label">Pic d'occupation</div></div>
   </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">🎬 Visualisation animée</div>
+  <canvas id="flowCanvas" aria-hidden="true"></canvas>
+  <p class="note">Les jetons colorés représentent les mouvements en cours : violet = déblocage système, vert = déblocage utilisateur, bleu = allocation immédiate / imprimantes rendues.</p>
 </div>
 
 <div class="controls">
@@ -220,9 +227,163 @@ let usrStarveStreak = 0;
 let busy = false;
 let autoOn = false, autoTimer = null;
 let runToken = 0;
+let particles = [], pulses = [], canvasRAF = null;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const stepDelay = () => parseInt(document.getElementById('speed').value);
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function canvasMetrics() {
+  const canvas = document.getElementById('flowCanvas');
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const queueColW = Math.min(140, w * 0.32);
+  const poolX0 = queueColW + 24;
+  const poolW = Math.max(40, w - poolX0 - 10);
+  return { w, h, queueColW, poolX0, poolW };
+}
+
+function arrivalPos() { const m = canvasMetrics(); return { x: m.queueColW / 2, y: 10 }; }
+function releasePos() { const m = canvasMetrics(); return { x: m.poolX0 + m.poolW / 2, y: m.h - 8 }; }
+function poolCentroid() { const m = canvasMetrics(); return { x: m.poolX0 + m.poolW / 2, y: m.h / 2 }; }
+function sysQueuePos(idx) { const m = canvasMetrics(); return { x: m.queueColW / 2, y: 44 + Math.min(idx, 6) * 18 }; }
+function usrQueuePos(idx) { const m = canvasMetrics(); return { x: m.queueColW / 2, y: m.h / 2 + 34 + Math.min(idx, 6) * 18 }; }
+
+function spawnParticle(from, to, color) {
+  const dur = stepDelay();
+  if (!dur) return;
+  particles.push({ x0: from.x, y0: from.y, x1: to.x, y1: to.y, color, start: performance.now(), dur: Math.max(dur, 300) });
+  if (!canvasRAF) canvasRAF = requestAnimationFrame(tickCanvas);
+}
+
+function spawnPulse(at, color) {
+  const dur = stepDelay();
+  if (!dur) return;
+  pulses.push({ x: at.x, y: at.y, color, start: performance.now(), dur: 550 });
+  if (!canvasRAF) canvasRAF = requestAnimationFrame(tickCanvas);
+}
+
+function tickCanvas(now) {
+  drawCanvas();
+  particles = particles.filter(p => now - p.start < p.dur);
+  pulses = pulses.filter(p => now - p.start < p.dur);
+  canvasRAF = (particles.length > 0 || pulses.length > 0) ? requestAnimationFrame(tickCanvas) : null;
+}
+
+function resizeCanvas() {
+  const canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawCanvas();
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawPrinterIcon(ctx, x, y, size, free) {
+  roundRectPath(ctx, x - size / 2, y - size / 2, size, size, 4);
+  ctx.fillStyle = free ? cssVar('--green-bg') : cssVar('--rose-bg');
+  ctx.fill();
+  ctx.strokeStyle = free ? cssVar('--green-border') : cssVar('--rose-border');
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.font = (size * 0.55) + 'px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = free ? cssVar('--green-fg') : cssVar('--rose-fg');
+  ctx.fillText('🖨', x, y + 1);
+}
+
+function drawCanvas() {
+  const canvas = document.getElementById('flowCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const { w, h, queueColW, poolX0, poolW } = canvasMetrics();
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = cssVar('--purple-fg');
+  ctx.fillText('Système (' + fileSys.length + ')', 4, 24);
+  for (let i = 0; i < Math.min(fileSys.length, 6); i++) {
+    const p = sysQueuePos(i);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = cssVar('--purple-bg'); ctx.fill();
+    ctx.strokeStyle = cssVar('--purple-border'); ctx.stroke();
+  }
+  if (fileSys.length > 6) {
+    ctx.fillStyle = cssVar('--muted');
+    ctx.fillText('+' + (fileSys.length - 6), 4, 44 + 6 * 18 + 4);
+  }
+
+  ctx.fillStyle = cssVar('--green-fg');
+  ctx.fillText('Utilisateur (' + fileUsr.length + ')', 4, h / 2 + 24);
+  for (let i = 0; i < Math.min(fileUsr.length, 6); i++) {
+    const p = usrQueuePos(i);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = cssVar('--green-bg'); ctx.fill();
+    ctx.strokeStyle = cssVar('--green-border'); ctx.stroke();
+  }
+  if (fileUsr.length > 6) {
+    ctx.fillStyle = cssVar('--muted');
+    ctx.fillText('+' + (fileUsr.length - 6), 4, h / 2 + 34 + 6 * 18 + 4);
+  }
+
+  const cell = 26;
+  const cols = Math.max(1, Math.floor(poolW / cell));
+  const rows = Math.ceil(N / cols);
+  const gridW = cols * cell, gridH = rows * cell;
+  const startX = poolX0 + Math.max(0, (poolW - gridW) / 2) + cell / 2;
+  const startY = h / 2 - gridH / 2 + cell / 2;
+  ctx.textAlign = 'center';
+  ctx.font = '9px system-ui, sans-serif';
+  ctx.fillStyle = cssVar('--muted');
+  ctx.fillText('Pool (' + (N - dispo) + '/' + N + ' occupées)', poolX0 + poolW / 2, 12);
+  for (let i = 0; i < N; i++) {
+    const col = i % cols, row = Math.floor(i / cols);
+    drawPrinterIcon(ctx, startX + col * cell, startY + row * cell, cell - 6, i < dispo);
+  }
+
+  const now = performance.now();
+  for (const p of pulses) {
+    const t = Math.min(1, (now - p.start) / p.dur);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6 + t * 14, 0, Math.PI * 2);
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 1 - t;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  for (const p of particles) {
+    let t = Math.min(1, (now - p.start) / p.dur);
+    t = 1 - Math.pow(1 - t, 3);
+    const x = p.x0 + (p.x1 - p.x0) * t;
+    const y = p.y0 + (p.y1 - p.y0) * t;
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = 0.55 + 0.45 * Math.sin(t * Math.PI);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
 
 function setControlsDisabled(disabled) {
   ['btn-demander', 'btn-liberer', 'btn-reset', 'btn-scenario'].forEach(id => {
@@ -274,6 +435,8 @@ function render() {
   document.getElementById('s-immediate').textContent = stats.immediate;
   document.getElementById('s-unblocked').textContent = stats.unblocked;
   document.getElementById('s-peak').textContent = stats.peak;
+
+  drawCanvas();
 }
 
 function log(msg, cls) {
@@ -313,14 +476,17 @@ function doDemander() {
       fileSys.push({ name, k: need });
       log('  Dispo(' + dispo + ') < K(' + k + ') -> FileSys <- besoin residuel=' + need + ', Dispo -> 0', 'step1');
       dispo = 0;
+      spawnParticle(arrivalPos(), sysQueuePos(fileSys.length - 1), cssVar('--purple'));
     } else {
       fileUsr.push({ name, k });
       log('  Dispo(' + dispo + ') < K(' + k + ') -> FileUsr <- ' + k + ' -- bloque', 'step1');
+      spawnParticle(arrivalPos(), usrQueuePos(fileUsr.length - 1), cssVar('--green'));
     }
   } else {
     dispo -= k;
     stats.immediate++;
     log('  Dispo suffisant -> Dispo = ' + dispo, 'step0');
+    spawnParticle(arrivalPos(), poolCentroid(), cssVar('--blue'));
   }
   render();
 }
@@ -343,6 +509,7 @@ async function doLiberer() {
   log('<- Libération de ' + m + ' imprimante(s)', 'req');
   log('  [Étape 0] Dispo = ' + dispo + ' + ' + m + ' = ' + (dispo + m), 'step0');
   dispo += m;
+  spawnParticle(releasePos(), poolCentroid(), cssVar('--blue'));
   render();
   if (delay) await sleep(delay);
   if (runToken !== myToken) return;
@@ -352,6 +519,7 @@ async function doLiberer() {
   while (fileSys.length > 0 && dispo >= fileSys[0].k) {
     const p = fileSys[0];
     log('  [Étape 1] Débloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step1');
+    spawnParticle(sysQueuePos(0), poolCentroid(), cssVar('--purple'));
     dispo -= p.k;
     fileSys.shift();
     stats.unblocked++;
@@ -364,6 +532,7 @@ async function doLiberer() {
   if (fileSys.length > 0 && dispo > 0) {
     const head = fileSys[0];
     log('  [Étape 2] Pas assez pour ' + head.name + ' (besoin ' + head.k + ') -> réserver ' + dispo + ', Tête <- ' + (head.k - dispo) + ', Dispo -> 0', 'step2');
+    spawnPulse(sysQueuePos(0), cssVar('--amber'));
     fileSys[0] = { name: head.name, k: head.k - dispo };
     dispo = 0;
     render();
@@ -374,6 +543,7 @@ async function doLiberer() {
     while (fileUsr.length > 0 && dispo >= fileUsr[0].k) {
       const p = fileUsr[0];
       log('  [Étape 3] Débloquer ' + p.name + ' (besoin ' + p.k + ') -> Dispo = ' + dispo + ' - ' + p.k + ' = ' + (dispo - p.k), 'step3');
+      spawnParticle(usrQueuePos(0), poolCentroid(), cssVar('--green'));
       dispo -= p.k;
       fileUsr.shift();
       stats.unblocked++;
@@ -480,6 +650,7 @@ function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   document.getElementById('btn-theme').textContent = theme === 'dark' ? '☀️' : '🌙';
   localStorage.setItem('moniteur-theme', theme);
+  drawCanvas();
 }
 
 function resetAll() {
@@ -497,6 +668,8 @@ function resetAll() {
 }
 
 (function init() {
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
   const savedTheme = localStorage.getItem('moniteur-theme')
     || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   setTheme(savedTheme);
