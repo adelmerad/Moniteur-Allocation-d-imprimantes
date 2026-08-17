@@ -36,6 +36,7 @@ Ouvrir `main.html` dans un navigateur. Aucune installation ni connexion internet
 ## Fonctionnalités
 
 - **Animation pas-à-pas** : chaque étape de `Libérer` s'exécute avec un court délai visible (imprimantes, files et badges se mettent à jour en direct), pas juste le résultat final. Vitesse réglable (Instantanée / Rapide / Normale / Lente).
+- **Visualisation Canvas animée** : un panneau dédié montre des jetons colorés glisser des files vers le pool d'imprimantes (violet = déblocage système, vert = déblocage utilisateur, bleu = allocation immédiate / imprimantes rendues), plus un anneau qui pulse lors d'une réservation partielle (Étape 2). Rendu en Canvas 2D natif, sans librairie externe.
 - **Nombre d'imprimantes configurable** (`N`, de 1 à 20) sans recharger la page.
 - **Détecteur de famine (starvation)** : bannière d'alerte si la file utilisateur reste non servie sur plusieurs libérations consécutives à cause de la priorité système — illustre un concept classique d'ordonnancement.
 - **Jauge d'occupation** visuelle (imprimantes libres vs occupées).
